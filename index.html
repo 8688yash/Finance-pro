@@ -1,460 +1,464 @@
-```react
-import React, { useState, useEffect, useMemo } from 'react';
-import { initializeApp } from 'firebase/app';
-import { getAuth, onAuthStateChanged, signInAnonymously, signInWithCustomToken } from 'firebase/auth';
-import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, query, setDoc, updateDoc } from 'firebase/firestore';
-import { 
-  Anchor, Wallet, Ship, TrendingUp, Plus, Trash2, ChevronRight, 
-  PieChart as PieChartIcon, Calendar, CreditCard, Banknote, 
-  RefreshCcw, ArrowUpCircle, ArrowDownCircle, Search, 
-  Settings, Download, Trash, BarChart3, Info, Globe, ShieldCheck
-} from 'lucide-react';
-import { 
-  Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, 
-  LinearScale, BarElement, Title, PointElement, LineElement 
-} from 'chart.js';
-import { Pie, Bar } from 'react-chartjs-2';
-
-ChartJS.register(
-  ArcElement, Tooltip, Legend, CategoryScale, 
-  LinearScale, BarElement, Title, PointElement, LineElement
-);
-
-// --- CONFIGURATION ---
-const firebaseConfig = JSON.parse(__firebase_config);
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'mariner-wealth-pro-v3';
-
-const EXCHANGE_RATES = {
-  USD: 1,
-  INR: 83.5,
-  AED: 3.67,
-  EUR: 0.92
-};
-
-const CATEGORIES = {
-  INCOME: [
-    { id: 'allotment', label: 'Monthly Allotment', icon: <Anchor size={16} />, account: 'nre' },
-    { id: 'advance', label: 'Cash Advance', icon: <Banknote size={16} />, account: 'cash' },
-    { id: 'interest', label: 'NRE Interest', icon: <TrendingUp size={16} />, account: 'nre' }
-  ],
-  EXPENSE: [
-    { id: 'shore_leave', label: 'Shore Leave', icon: <Ship size={16} />, account: 'cash' },
-    { id: 'bond_store', label: 'Bond Store', icon: <CreditCard size={16} />, account: 'cash' },
-    { id: 'loan_emi', label: 'Loan Installment', icon: <RefreshCcw size={16} />, account: 'nre' },
-    { id: 'family', label: 'Family Remittance', icon: <Plus size={16} />, account: 'nre' },
-    { id: 'misc', label: 'Miscellaneous', icon: <Plus size={16} />, account: 'cash' }
-  ]
-};
-
-const COLORS = {
-  nre: '#38bdf8', cash: '#10b981', loan: '#f43f5e',
-  income: '#10b981', expense: '#f43f5e'
-};
-
-// --- MAIN APP ---
-export default function App() {
-  const [user, setUser] = useState(null);
-  const [transactions, setTransactions] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
-  const [baseCurrency, setBaseCurrency] = useState('USD');
-  const [budget, setBudget] = useState(1000);
-  const [showSettings, setShowSettings] = useState(false);
-
-  // Form State
-  const [form, setForm] = useState({
-    amount: '',
-    currency: 'USD',
-    category: 'allotment',
-    type: 'income',
-    desc: '',
-    date: new Date().toISOString().split('T')[0]
-  });
-
-  // 1. Auth Initializer
-  useEffect(() => {
-    const initAuth = async () => {
-      if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-        await signInWithCustomToken(auth, __initial_auth_token);
-      } else {
-        await signInAnonymously(auth);
-      }
-    };
-    initAuth();
-    return onAuthStateChanged(auth, setUser);
-  }, []);
-
-  // 2. Data Listener
-  useEffect(() => {
-    if (!user) return;
-    const q = query(collection(db, 'artifacts', appId, 'users', user.uid, 'transactions'));
-    return onSnapshot(q, (snap) => {
-      setTransactions(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => b.date.localeCompare(a.date)));
-      setLoading(false);
-    });
-  }, [user]);
-
-  // 3. Analytics Engine
-  const stats = useMemo(() => {
-    let totals = { nre: 0, cash: 0, loans: 0, inc: 0, exp: 0 };
-    let monthly = { inc: 0, exp: 0, cats: {} };
-    
-    transactions.forEach(t => {
-      // Normalize to USD
-      const usdVal = t.amount / EXCHANGE_RATES[t.currency];
-      const isSelectedMonth = t.date.startsWith(selectedMonth);
-
-      if (t.type === 'income') {
-        totals.inc += usdVal;
-        if (isSelectedMonth) monthly.inc += usdVal;
-        if (t.account === 'nre') totals.nre += usdVal;
-        else totals.cash += usdVal;
-      } else {
-        totals.exp += usdVal;
-        if (isSelectedMonth) {
-          monthly.exp += usdVal;
-          monthly.cats[t.category] = (monthly.cats[t.category] || 0) + usdVal;
-        }
-        if (t.category === 'loan_emi') totals.loans += usdVal;
-        if (t.account === 'nre') totals.nre -= usdVal;
-        else totals.cash -= usdVal;
-      }
-    });
-
-    return { ...totals, monthly };
-  }, [transactions, selectedMonth]);
-
-  const uniqueMonths = useMemo(() => {
-    const set = new Set(transactions.map(t => t.date.slice(0, 7)));
-    set.add(new Date().toISOString().slice(0, 7));
-    return Array.from(set).sort().reverse();
-  }, [transactions]);
-
-  // Insights Logic
-  const insight = useMemo(() => {
-    if (stats.monthly.exp > budget) return { text: "Budget Exceeded! Reduce Bond Store/Misc spending.", color: "text-rose-400" };
-    if (stats.monthly.inc > 0 && (stats.monthly.exp / stats.monthly.inc) < 0.3) return { text: "High Efficiency Month! Savings rate > 70%.", color: "text-emerald-400" };
-    return { text: "Monitor your Shore Leave expenses this port stay.", color: "text-sky-400" };
-  }, [stats, budget]);
-
-  // Actions
-  const addTransaction = async (e) => {
-    e.preventDefault();
-    if (!form.amount) return;
-    const catData = [...CATEGORIES.INCOME, ...CATEGORIES.EXPENSE].find(c => c.id === form.category);
-    await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'transactions'), {
-      ...form,
-      amount: parseFloat(form.amount),
-      account: catData.account,
-      month: form.date.slice(0, 7)
-    });
-    setForm({ ...form, amount: '', desc: '' });
-  };
-
-  const deleteTx = async (id) => {
-    await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'transactions', id));
-  };
-
-  const exportData = () => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(transactions));
-    const dl = document.createElement('a');
-    dl.setAttribute("href", dataStr);
-    dl.setAttribute("download", `mariner_finance_${selectedMonth}.json`);
-    dl.click();
-  };
-
-  if (loading) return (
-    <div className="h-screen bg-[#020617] flex flex-col items-center justify-center gap-4">
-      <div className="w-12 h-12 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
-      <p className="text-sky-400 font-bold tracking-widest text-xs">BOOTING COMMAND CENTER...</p>
-    </div>
-  );
-
-  return (
-    <div className="min-h-screen bg-[#020617] text-slate-100 font-sans selection:bg-sky-500/30">
-      
-      {/* SECTION 1: TOP CONTROL BAR */}
-      <nav className="sticky top-0 z-50 bg-[#020617]/80 backdrop-blur-md border-b border-white/5 px-4 md:px-8 py-4 flex flex-wrap justify-between items-center gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-sky-500 rounded-xl text-[#020617] shadow-lg shadow-sky-500/20">
-            <Anchor size={24} strokeWidth={3} />
-          </div>
-          <div>
-            <h1 className="text-xl font-black tracking-tighter">MARINER<span className="text-sky-500">WEALTH</span> PRO</h1>
-            <div className="flex items-center gap-2 text-[10px] text-slate-500 font-bold uppercase tracking-widest">
-              <ShieldCheck size={10} className="text-emerald-500" /> Secure Cloud Active
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <div className="hidden md:flex bg-slate-900 rounded-full px-3 py-1 items-center gap-2 border border-white/5">
-            <Globe size={14} className="text-slate-500" />
-            <select 
-              value={baseCurrency} 
-              onChange={e => setBaseCurrency(e.target.value)}
-              className="bg-transparent text-xs font-bold outline-none cursor-pointer"
-            >
-              {Object.keys(EXCHANGE_RATES).map(curr => <option key={curr} value={curr}>{curr}</option>)}
-            </select>
-          </div>
-          <button onClick={exportData} className="p-2 text-slate-400 hover:text-white transition"><Download size={20} /></button>
-          <button onClick={() => setShowSettings(!showSettings)} className="p-2 text-slate-400 hover:text-white transition"><Settings size={20} /></button>
-        </div>
-      </nav>
-
-      <main className="max-w-7xl mx-auto p-4 md:p-8 space-y-8">
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MarinerWealth Pro | Seafarer Command Center</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
         
-        {/* SECTION 2: NET WORTH DASHBOARD */}
-        <section className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <div className="lg:col-span-2 bg-gradient-to-br from-slate-900 to-[#020617] p-8 rounded-[2.5rem] border border-white/5 relative overflow-hidden group">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-sky-500/10 blur-[100px] group-hover:bg-sky-500/20 transition-all duration-700"></div>
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Total Net Worth ({baseCurrency})</p>
-            <h2 className="text-6xl font-black tracking-tighter mb-8">
-              {baseCurrency === 'USD' ? '$' : ''}
-              {((stats.nre + stats.cash) * EXCHANGE_RATES[baseCurrency]).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-            </h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {[
-                { label: 'NRE Bank', val: stats.nre, color: 'text-sky-400' },
-                { label: 'Cash in Hand', val: stats.cash, color: 'text-emerald-400' },
-                { label: 'Total Loans', val: stats.loans, color: 'text-rose-400' },
-                { label: 'Savings Rate', val: stats.inc > 0 ? ((stats.inc - stats.exp) / stats.inc * 100).toFixed(1) + '%' : '0%', color: 'text-indigo-400' }
-              ].map((card, i) => (
-                <div key={i} className="bg-white/5 p-4 rounded-2xl border border-white/5">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">{card.label}</p>
-                  <p className={`text-sm font-black ${card.color}`}>
-                    {typeof card.val === 'number' ? (baseCurrency === 'USD' ? '$' : '') + (card.val * EXCHANGE_RATES[baseCurrency]).toLocaleString(undefined, { maximumFractionDigits: 0 }) : card.val}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
+        :root {
+            --ocean-dark: #020617;
+            --ocean-blue: #38bdf8;
+            --glass: rgba(15, 23, 42, 0.8);
+        }
 
-          {/* SECTION 3: QUICK ANALYTICS */}
-          <div className="lg:col-span-1 bg-slate-900/40 p-6 rounded-[2.5rem] border border-white/5 flex flex-col items-center justify-center min-h-[300px]">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6">Spend Distribution</h3>
-            {Object.keys(stats.monthly.cats).length > 0 ? (
-              <div className="w-full max-w-[180px]">
-                <Pie data={{
-                  labels: Object.keys(stats.monthly.cats),
-                  datasets: [{
-                    data: Object.values(stats.monthly.cats),
-                    backgroundColor: ['#38bdf8', '#fbbf24', '#f43f5e', '#a78bfa', '#10b981'],
-                    borderWidth: 0
-                  }]
-                }} options={{ plugins: { legend: { display: false } }, cutout: '75%' }} />
-              </div>
-            ) : (
-              <div className="text-center space-y-2 opacity-30">
-                <PieChartIcon size={48} className="mx-auto" />
-                <p className="text-xs italic">No data this month</p>
-              </div>
-            )}
-          </div>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--ocean-dark);
+            background-image: radial-gradient(circle at 50% -20%, #0c4a6e, #020617);
+            color: #f8fafc;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
 
-          <div className="lg:col-span-1 bg-slate-900/40 p-6 rounded-[2.5rem] border border-white/5 flex flex-col justify-between">
-            <div>
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Smart Insight</h3>
-              <div className="flex gap-3">
-                <Info size={16} className={insight.color} />
-                <p className={`text-xs font-medium leading-relaxed ${insight.color}`}>{insight.text}</p>
-              </div>
-            </div>
-            <div className="mt-6 pt-6 border-t border-white/5">
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Budget Tracker</h3>
-              <div className="flex justify-between text-[10px] mb-2 uppercase font-bold text-slate-500">
-                <span>{Math.round((stats.monthly.exp / budget) * 100)}% Used</span>
-                <span>Limit: ${budget}</span>
-              </div>
-              <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
-                <div 
-                  className={`h-full transition-all duration-1000 ${stats.monthly.exp > budget ? 'bg-rose-500' : 'bg-sky-500'}`}
-                  style={{ width: `${Math.min(100, (stats.monthly.exp / budget) * 100)}%` }}
-                ></div>
-              </div>
-            </div>
-          </div>
-        </section>
+        .glass-card {
+            background: var(--glass);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+        }
 
-        {/* SECTION 4 & 5: ENTRY PANEL & MONTH SELECTOR */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-          
-          <div className="lg:col-span-1 bg-slate-900 p-8 rounded-[2.5rem] border border-sky-500/20 shadow-2xl shadow-sky-500/5">
-            <h3 className="text-lg font-black mb-6 flex items-center gap-2">
-              <Plus className="text-sky-500" /> ADD TRANSACTION
-            </h3>
-            <form onSubmit={addTransaction} className="space-y-4">
-              <div className="flex bg-slate-950 p-1 rounded-2xl border border-white/5">
-                <button type="button" onClick={() => setForm({...form, type: 'income', category: 'allotment'})} className={`flex-1 py-3 rounded-xl text-xs font-bold transition-all ${form.type === 'income' ? 'bg-sky-500 text-slate-950' : 'text-slate-500'}`}>INCOME</button>
-                <button type="button" onClick={() => setForm({...form, type: 'expense', category: 'shore_leave'})} className={`flex-1 py-3 rounded-xl text-xs font-bold transition-all ${form.type === 'expense' ? 'bg-rose-500 text-slate-950' : 'text-slate-500'}`}>EXPENSE</button>
-              </div>
+        .btn-primary {
+            background: var(--ocean-blue);
+            color: #020617;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .btn-primary:active { transform: scale(0.95); }
 
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase ml-2 mb-1 block">Category</label>
-                    <select value={form.category} onChange={e => setForm({...form, category: e.target.value})} className="w-full bg-slate-950 border border-white/10 rounded-xl p-3 text-sm focus:border-sky-500 outline-none">
-                      {CATEGORIES[form.type.toUpperCase()].map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase ml-2 mb-1 block">Currency</label>
-                    <select value={form.currency} onChange={e => setForm({...form, currency: e.target.value})} className="w-full bg-slate-950 border border-white/10 rounded-xl p-3 text-sm focus:border-sky-500 outline-none">
-                      {Object.keys(EXCHANGE_RATES).map(curr => <option key={curr} value={curr}>{curr}</option>)}
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase ml-2 mb-1 block">Amount</label>
-                  <input type="number" step="any" placeholder="0.00" value={form.amount} onChange={e => setForm({...form, amount: e.target.value})} className="w-full bg-slate-950 border border-white/10 rounded-xl p-4 text-xl font-black focus:border-sky-500 outline-none" required />
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase ml-2 mb-1 block">Notes / Port</label>
-                  <input type="text" placeholder="e.g. Singapore Bunkering" value={form.desc} onChange={e => setForm({...form, desc: e.target.value})} className="w-full bg-slate-950 border border-white/10 rounded-xl p-3 text-sm focus:border-sky-500 outline-none" />
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase ml-2 mb-1 block">Date</label>
-                  <input type="date" value={form.date} onChange={e => setForm({...form, date: e.target.value})} className="w-full bg-slate-950 border border-white/10 rounded-xl p-3 text-sm focus:border-sky-500 outline-none" />
-                </div>
-              </div>
-
-              <button type="submit" className="w-full bg-sky-500 hover:bg-sky-400 text-slate-950 py-4 rounded-2xl font-black transition-all shadow-lg shadow-sky-500/20 active:scale-95">LOG ENTRY</button>
-            </form>
-          </div>
-
-          <div className="lg:col-span-2 space-y-6">
-            {/* SECTION 5: MONTH SELECTOR */}
-            <div className="flex overflow-x-auto pb-4 gap-3 custom-scroll">
-              {uniqueMonths.map(m => (
-                <button
-                  key={m}
-                  onClick={() => setSelectedMonth(m)}
-                  className={`flex-shrink-0 px-6 py-3 rounded-2xl text-sm font-bold border transition-all ${selectedMonth === m ? 'bg-sky-500 border-sky-500 text-slate-950' : 'bg-slate-900 border-white/5 text-slate-400 hover:border-white/20'}`}
-                >
-                  {new Date(m + '-01').toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}
-                </button>
-              ))}
-            </div>
-
-            {/* SECTION 6 & 7: HISTORY & SUMMARY */}
-            <div className="bg-slate-900/40 border border-white/5 rounded-[2.5rem] p-6 md:p-8">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="font-black text-lg uppercase tracking-widest text-slate-500">Monthly Logs</h3>
-                <span className="text-xs bg-sky-500/10 text-sky-400 px-3 py-1 rounded-full font-bold">
-                  {transactions.filter(t => t.date.startsWith(selectedMonth)).length} ENTRIES
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                {[
-                  { l: 'Income', v: stats.monthly.inc, c: 'text-emerald-400' },
-                  { l: 'Expense', v: stats.monthly.exp, c: 'text-rose-400' },
-                  { l: 'Net Savings', v: stats.monthly.inc - stats.monthly.exp, c: 'text-sky-400' },
-                  { l: 'Saved %', v: stats.monthly.inc > 0 ? ((stats.monthly.inc - stats.monthly.exp) / stats.monthly.inc * 100).toFixed(0) + '%' : '0%', c: 'text-indigo-400' }
-                ].map((s, i) => (
-                  <div key={i} className="bg-white/5 p-4 rounded-2xl border border-white/5">
-                    <p className="text-[9px] font-bold text-slate-500 uppercase mb-1">{s.l}</p>
-                    <p className={`text-sm font-black ${s.c}`}>{typeof s.v === 'number' ? '$' + s.v.toLocaleString(undefined, { maximumFractionDigits: 0 }) : s.v}</p>
-                  </div>
-                ))}
-              </div>
-
-              <div className="space-y-3 max-h-[400px] overflow-y-auto custom-scroll pr-2">
-                {transactions.filter(t => t.date.startsWith(selectedMonth)).length > 0 ? (
-                  transactions.filter(t => t.date.startsWith(selectedMonth)).map(t => (
-                    <div key={t.id} className="group bg-slate-950/50 p-4 rounded-2xl border border-white/5 flex items-center justify-between hover:border-sky-500/30 transition-all">
-                      <div className="flex items-center gap-4">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${t.type === 'income' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
-                          {[...CATEGORIES.INCOME, ...CATEGORIES.EXPENSE].find(c => c.id === t.category)?.icon || <Anchor size={16} />}
-                        </div>
-                        <div>
-                          <p className="text-sm font-bold text-slate-200">{t.desc || t.category.replace('_', ' ')}</p>
-                          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">
-                            {t.category.replace('_', ' ')} • {t.date}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <div className="text-right">
-                          <p className={`font-black ${t.type === 'income' ? 'text-emerald-400' : 'text-rose-400'}`}>
-                            {t.type === 'income' ? '+' : '-'}{t.currency} {t.amount.toLocaleString()}
-                          </p>
-                          <p className="text-[9px] text-slate-600 font-bold uppercase">Via {t.account}</p>
-                        </div>
-                        <button onClick={() => deleteTx(t.id)} className="p-2 text-slate-700 hover:text-rose-500 transition-colors">
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="py-12 text-center opacity-20">
-                    <Ship size={48} className="mx-auto mb-2" />
-                    <p className="text-sm italic">Sea was calm. No transactions logged.</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* SECTION 10: SETTINGS COLLAPSIBLE */}
-        {showSettings && (
-          <div className="fixed inset-0 z-[60] bg-[#020617]/90 backdrop-blur-xl flex items-center justify-center p-4">
-            <div className="bg-slate-900 border border-white/10 w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl space-y-6">
-              <div className="flex justify-between items-center">
-                <h3 className="text-xl font-black">SYSTEM SETTINGS</h3>
-                <button onClick={() => setShowSettings(false)} className="p-2 bg-white/5 rounded-full hover:bg-white/10"><Plus className="rotate-45" /></button>
-              </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase block mb-2">Monthly Budget (USD)</label>
-                  <input type="number" value={budget} onChange={e => setBudget(e.target.value)} className="w-full bg-slate-950 border border-white/10 rounded-xl p-4 outline-none focus:border-sky-500" />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase block mb-2">Exchange Rates (vs 1 USD)</label>
-                  <div className="grid grid-cols-2 gap-2 text-[10px] font-mono text-slate-400">
-                    {Object.entries(EXCHANGE_RATES).map(([c, r]) => <div key={c} className="bg-slate-950 p-2 rounded-lg border border-white/5">{c}: {r}</div>)}
-                  </div>
-                </div>
-                <div className="pt-4 space-y-2">
-                  <button onClick={() => {if(confirm("Wipe all data?")) setTransactions([]);}} className="w-full bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white py-4 rounded-2xl font-bold transition-all flex items-center justify-center gap-2">
-                    <Trash size={18} /> FACTORY RESET
-                  </button>
-                  <p className="text-[10px] text-slate-600 text-center uppercase tracking-widest font-bold">Version 3.0.4 - Mariner Wealth Pro</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-      </main>
-
-      <footer className="mt-12 py-8 border-t border-white/5 text-center">
-        <p className="text-slate-600 text-[10px] font-bold uppercase tracking-widest">Designed for those at sea. No Internet required after initial load.</p>
-      </footer>
-
-      <style dangerouslySetInnerHTML={{ __html: `
         .custom-scroll::-webkit-scrollbar { height: 4px; width: 4px; }
         .custom-scroll::-webkit-scrollbar-track { background: transparent; }
-        .custom-scroll::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
-        input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); opacity: 0.5; cursor: pointer; }
-        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
-        .animate-float { animation: float 3s ease-in-out infinite; }
-      `}} />
+        .custom-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+
+        input, select {
+            background: rgba(0, 0, 0, 0.3) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            color: white !important;
+        }
+        input:focus { border-color: var(--ocean-blue) !important; outline: none; }
+
+        .month-chip.active {
+            background: var(--ocean-blue);
+            color: #020617;
+            border-color: var(--ocean-blue);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade { animation: fadeIn 0.4s ease-out forwards; }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-6xl mx-auto space-y-8">
+        
+        <!-- SECTION 1: TOP CONTROL BAR -->
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div class="flex items-center gap-4">
+                <div class="p-3 bg-sky-500 rounded-2xl shadow-lg shadow-sky-500/20">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-800 tracking-tighter">MARINER<span class="text-sky-400">WEALTH</span> PRO</h1>
+                    <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Fleet Finance Control Panel</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 w-full md:w-auto">
+                <div class="flex-1 md:flex-none flex items-center bg-white/5 border border-white/10 rounded-xl px-3 py-2">
+                    <span class="text-xs font-bold text-slate-400 mr-2">BASE:</span>
+                    <select id="base-currency" onchange="updateDashboard()" class="bg-transparent text-sm font-bold outline-none cursor-pointer">
+                        <option value="USD">USD ($)</option>
+                        <option value="INR">INR (₹)</option>
+                        <option value="AED">AED (د.إ)</option>
+                    </select>
+                </div>
+                <button onclick="exportData()" class="p-3 glass-card rounded-xl hover:bg-white/10"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
+                <button onclick="resetSystem()" class="p-3 glass-card rounded-xl hover:bg-rose-500/20 text-rose-400"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>
+            </div>
+        </header>
+
+        <!-- SECTION 2: NET WORTH DASHBOARD -->
+        <section class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <div class="lg:col-span-2 glass-card p-8 rounded-[2.5rem] relative overflow-hidden group">
+                <div class="absolute top-0 right-0 w-64 h-64 bg-sky-500/10 blur-[100px] rounded-full"></div>
+                <div class="relative z-10">
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Total Combined Net Worth</p>
+                    <h2 id="total-net-worth" class="text-6xl font-900 tracking-tighter mb-8">$0.00</h2>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div class="bg-white/5 p-4 rounded-2xl border border-white/5">
+                            <p class="text-[9px] font-bold text-slate-500 uppercase mb-1">NRE Account</p>
+                            <p id="stat-nre" class="text-sm font-bold text-sky-400">$0</p>
+                        </div>
+                        <div class="bg-white/5 p-4 rounded-2xl border border-white/5">
+                            <p class="text-[9px] font-bold text-slate-500 uppercase mb-1">Cash Onboard</p>
+                            <p id="stat-cash" class="text-sm font-bold text-emerald-400">$0</p>
+                        </div>
+                        <div class="bg-white/5 p-4 rounded-2xl border border-white/5">
+                            <p class="text-[9px] font-bold text-slate-500 uppercase mb-1">Loan Balance</p>
+                            <p id="stat-loan" class="text-sm font-bold text-rose-400">$0</p>
+                        </div>
+                        <div class="bg-white/5 p-4 rounded-2xl border border-white/5">
+                            <p class="text-[9px] font-bold text-slate-500 uppercase mb-1">Savings Rate</p>
+                            <p id="stat-rate" class="text-sm font-bold text-indigo-400">0%</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION 3: QUICK ANALYTICS -->
+            <div class="glass-card p-6 rounded-[2.5rem] flex flex-col items-center justify-center">
+                <h3 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-6">Spend Distribution</h3>
+                <div class="w-full max-w-[150px]">
+                    <canvas id="expenseChart"></canvas>
+                </div>
+            </div>
+
+            <div class="glass-card p-6 rounded-[2.5rem] flex flex-col justify-between">
+                <div>
+                    <h3 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Monthly Budget</h3>
+                    <div class="flex justify-between items-end mb-2">
+                        <p id="budget-used-text" class="text-2xl font-bold">$0</p>
+                        <p class="text-[10px] text-slate-500 font-bold">Limit: $1,200</p>
+                    </div>
+                    <div class="h-2 bg-white/5 rounded-full overflow-hidden">
+                        <div id="budget-progress" class="h-full bg-sky-500 transition-all duration-1000" style="width: 0%"></div>
+                    </div>
+                </div>
+                <div id="smart-insight" class="mt-4 p-3 bg-white/5 rounded-xl border border-white/5 text-[10px] font-medium leading-relaxed text-slate-400">
+                    Input your first transaction to generate fleet insights.
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 4: ADD ENTRY PANEL (ALWAYS VISIBLE) -->
+        <section class="glass-card p-8 rounded-[2.5rem] border-sky-500/20 shadow-2xl shadow-sky-500/5">
+            <h3 class="text-sm font-900 uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                New Transaction Log
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="space-y-4">
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-500 uppercase ml-2 mb-1 block">Category</label>
+                        <select id="in-category" class="w-full p-3 rounded-xl text-sm outline-none">
+                            <optgroup label="Inflow">
+                                <option value="Allotment">Monthly Allotment</option>
+                                <option value="Cash Advance">Cash Advance (Onboard)</option>
+                                <option value="Interest">NRE Interest / Misc</option>
+                            </optgroup>
+                            <optgroup label="Outflow">
+                                <option value="Shore Leave">Shore Leave Expense</option>
+                                <option value="Bond Store">Bond Store Expense</option>
+                                <option value="Loan EMI">Loan Installment</option>
+                                <option value="Family">Family Remittance</option>
+                                <option value="Other">Miscellaneous</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-500 uppercase ml-2 mb-1 block">Amount & Currency</label>
+                        <div class="flex gap-2">
+                            <input id="in-amount" type="number" placeholder="0.00" class="flex-1 p-3 rounded-xl text-lg font-bold">
+                            <select id="in-currency" class="w-20 p-3 rounded-xl text-xs font-bold">
+                                <option value="USD">USD</option>
+                                <option value="INR">INR</option>
+                                <option value="AED">AED</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-500 uppercase ml-2 mb-1 block">Date & Month</label>
+                        <input id="in-date" type="date" class="w-full p-3 rounded-xl text-sm">
+                    </div>
+                </div>
+                <div class="flex items-end">
+                    <button onclick="handleAdd()" class="w-full btn-primary font-900 py-4 rounded-xl shadow-lg shadow-sky-500/20 uppercase tracking-widest text-xs">
+                        Sync Entry
+                    </button>
+                </div>
+            </div>
+            <div class="mt-4">
+                <input id="in-desc" type="text" placeholder="Description (e.g. Port Singapore Dinner / Cabin Bond)" class="w-full p-3 rounded-xl text-sm italic">
+            </div>
+        </section>
+
+        <!-- SECTION 5: MONTH SELECTOR & HISTORY -->
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+            <div class="lg:col-span-1 space-y-4">
+                <h3 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-2">Voyage Months</h3>
+                <div id="month-chips" class="flex flex-row lg:flex-col gap-2 overflow-x-auto lg:overflow-visible custom-scroll pb-2 lg:pb-0">
+                    <!-- Months injected here -->
+                </div>
+            </div>
+
+            <div class="lg:col-span-3 space-y-4">
+                <div class="flex justify-between items-center px-2">
+                    <h3 id="history-title" class="text-sm font-bold text-slate-300">Recent Transactions</h3>
+                    <div id="month-summary" class="flex gap-4 text-[10px] font-bold uppercase">
+                        <span class="text-emerald-400">In: <span id="m-inc">$0</span></span>
+                        <span class="text-rose-400">Out: <span id="m-exp">$0</span></span>
+                    </div>
+                </div>
+                <div id="tx-history" class="space-y-3 max-h-[500px] overflow-y-auto custom-scroll pr-2">
+                    <!-- Logs injected here -->
+                </div>
+            </div>
+        </div>
+
     </div>
-  );
-}
+
+    <!-- UI TOAST -->
+    <div id="toast" class="fixed bottom-10 left-1/2 -translate-x-1/2 glass-card border-sky-500 px-8 py-4 rounded-2xl font-bold text-sm opacity-0 pointer-events-none transition-all duration-300 z-50"></div>
+
+    <script>
+        // --- DATA & CONFIG ---
+        const RATES = { USD: 1, INR: 83.5, AED: 3.67 };
+        const BUDGET_LIMIT = 1200;
+        
+        let state = {
+            transactions: JSON.parse(localStorage.getItem('mpro_data')) || [],
+            selectedMonth: new Date().toISOString().slice(0, 7),
+            baseCurrency: 'USD'
+        };
+
+        const CAT_MAP = {
+            'Allotment': { type: 'income', account: 'nre' },
+            'Cash Advance': { type: 'income', account: 'cash' },
+            'Interest': { type: 'income', account: 'nre' },
+            'Shore Leave': { type: 'expense', account: 'cash' },
+            'Bond Store': { type: 'expense', account: 'cash' },
+            'Loan EMI': { type: 'expense', account: 'nre' },
+            'Family': { type: 'expense', account: 'nre' },
+            'Other': { type: 'expense', account: 'cash' }
+        };
+
+        let myChart = null;
+
+        // --- CORE FUNCTIONS ---
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.innerText = msg;
+            t.classList.add('opacity-100', '-translate-y-4');
+            setTimeout(() => t.classList.remove('opacity-100', '-translate-y-4'), 3000);
+        }
+
+        function handleAdd() {
+            const amt = parseFloat(document.getElementById('in-amount').value);
+            const curr = document.getElementById('in-currency').value;
+            const date = document.getElementById('in-date').value;
+            const cat = document.getElementById('in-category').value;
+            const desc = document.getElementById('in-desc').value.trim();
+
+            if (!amt || !date) return showToast("⚠️ Enter valid amount and date");
+
+            const tx = {
+                id: Date.now(),
+                amount: amt,
+                currency: curr,
+                date: date,
+                month: date.slice(0, 7),
+                category: cat,
+                description: desc || cat,
+                type: CAT_MAP[cat].type,
+                account: CAT_MAP[cat].account
+            };
+
+            state.transactions.unshift(tx);
+            save();
+            document.getElementById('in-amount').value = '';
+            document.getElementById('in-desc').value = '';
+            showToast("⚓ Sync Successful");
+            updateDashboard();
+        }
+
+        function save() {
+            localStorage.setItem('mpro_data', JSON.stringify(state.transactions));
+        }
+
+        function deleteTx(id) {
+            state.transactions = state.transactions.filter(t => t.id !== id);
+            save();
+            updateDashboard();
+        }
+
+        function updateDashboard() {
+            state.baseCurrency = document.getElementById('base-currency').value;
+            const txs = state.transactions;
+            const month = state.selectedMonth;
+            
+            let totalUSD = 0, nreUSD = 0, cashUSD = 0, loanUSD = 0, incUSD = 0, expUSD = 0;
+            let mIncUSD = 0, mExpUSD = 0;
+            let catStats = {};
+
+            txs.forEach(t => {
+                const valUSD = t.amount / RATES[t.currency];
+                const isSelected = t.month === month;
+
+                if (t.type === 'income') {
+                    incUSD += valUSD;
+                    if (isSelected) mIncUSD += valUSD;
+                    if (t.account === 'nre') nreUSD += valUSD; else cashUSD += valUSD;
+                } else {
+                    expUSD += valUSD;
+                    if (isSelected) {
+                        mExpUSD += valUSD;
+                        catStats[t.category] = (catStats[t.category] || 0) + valUSD;
+                    }
+                    if (t.category === 'Loan EMI') loanUSD += valUSD;
+                    if (t.account === 'nre') nreUSD -= valUSD; else cashUSD -= valUSD;
+                }
+            });
+
+            // UI UPDATES
+            const format = (v) => (state.baseCurrency === 'USD' ? '$' : (state.baseCurrency === 'INR' ? '₹' : 'د.إ')) + (v * RATES[state.baseCurrency]).toLocaleString(undefined, { maximumFractionDigits: 0 });
+
+            document.getElementById('total-net-worth').innerText = format(nreUSD + cashUSD);
+            document.getElementById('stat-nre').innerText = format(nreUSD);
+            document.getElementById('stat-cash').innerText = format(cashUSD);
+            document.getElementById('stat-loan').innerText = format(loanUSD);
+            document.getElementById('stat-rate').innerText = incUSD > 0 ? ((incUSD - expUSD) / incUSD * 100).toFixed(0) + '%' : '0%';
+
+            document.getElementById('budget-used-text').innerText = format(mExpUSD);
+            const prog = Math.min(100, (mExpUSD / BUDGET_LIMIT) * 100);
+            document.getElementById('budget-progress').style.width = prog + '%';
+            document.getElementById('budget-progress').className = `h-full transition-all duration-1000 ${prog > 90 ? 'bg-rose-500' : 'bg-sky-500'}`;
+
+            document.getElementById('m-inc').innerText = format(mIncUSD);
+            document.getElementById('m-exp').innerText = format(mExpUSD);
+
+            renderHistory(month);
+            renderMonthChips();
+            updateChart(catStats);
+            updateInsights(mExpUSD, mIncUSD);
+        }
+
+        function updateInsights(exp, inc) {
+            const el = document.getElementById('smart-insight');
+            if (exp > BUDGET_LIMIT) {
+                el.innerText = "🚨 High spending detected. Bond Store and Shore Leave costs are exceeding your safe limits.";
+                el.className = "mt-4 p-3 bg-rose-500/10 rounded-xl border border-rose-500/30 text-[10px] font-bold text-rose-400";
+            } else if (inc > 0 && (exp / inc) < 0.2) {
+                el.innerText = "💎 Excellent voyage efficiency! You are saving over 80% of your income this month.";
+                el.className = "mt-4 p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/30 text-[10px] font-bold text-emerald-400";
+            } else {
+                el.innerText = "⚓ Steady sailing. Keep tracking your port expenses to maintain your savings goal.";
+                el.className = "mt-4 p-3 bg-white/5 rounded-xl border border-white/5 text-[10px] font-medium text-slate-400";
+            }
+        }
+
+        function renderMonthChips() {
+            const container = document.getElementById('month-chips');
+            const months = ['all', ...new Set(state.transactions.map(t => t.month))].sort().reverse();
+            if (!months.includes(new Date().toISOString().slice(0, 7))) months.push(new Date().toISOString().slice(0, 7));
+            
+            container.innerHTML = [...new Set(months)].map(m => `
+                <button onclick="state.selectedMonth='${m}'; updateDashboard()" class="month-chip flex-shrink-0 px-4 py-2 rounded-xl text-xs font-bold border border-white/10 transition-all ${state.selectedMonth === m ? 'active' : 'bg-white/5 text-slate-500 hover:text-white'}">
+                    ${m === 'all' ? 'FULL LOG' : new Date(m + '-02').toLocaleString('default', { month: 'short', year: '2-digit' })}
+                </button>
+            `).join('');
+        }
+
+        function renderHistory(month) {
+            const container = document.getElementById('tx-history');
+            const filtered = state.transactions.filter(t => month === 'all' || t.month === month);
+            
+            if (filtered.length === 0) {
+                container.innerHTML = `<div class="py-12 text-center opacity-30 text-xs italic">No activity recorded for this period.</div>`;
+                return;
+            }
+
+            container.innerHTML = filtered.map(t => `
+                <div class="animate-fade glass-card p-4 rounded-2xl flex items-center justify-between group hover:border-sky-500/30 transition-all">
+                    <div class="flex items-center gap-4">
+                        <div class="w-10 h-10 rounded-xl flex items-center justify-center ${t.type === 'income' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-400'}">
+                            ${t.type === 'income' ? '↑' : '↓'}
+                        </div>
+                        <div>
+                            <p class="text-sm font-bold">${t.description}</p>
+                            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">${t.category} • ${t.date}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <div class="text-right">
+                            <p class="font-black ${t.type === 'income' ? 'text-emerald-400' : 'text-rose-400'}">${t.currency} ${t.amount.toLocaleString()}</p>
+                            <p class="text-[9px] text-slate-600 font-bold uppercase">Via ${t.account.toUpperCase()}</p>
+                        </div>
+                        <button onclick="deleteTx(${t.id})" class="text-slate-700 hover:text-rose-500 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function updateChart(data) {
+            const ctx = document.getElementById('expenseChart').getContext('2d');
+            const labels = Object.keys(data);
+            const values = Object.values(data);
+
+            if (myChart) myChart.destroy();
+            if (labels.length === 0) return;
+
+            myChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: values,
+                        backgroundColor: ['#38bdf8', '#fbbf24', '#f43f5e', '#a78bfa', '#10b981'],
+                        borderWidth: 0
+                    }]
+                },
+                options: { cutout: '80%', plugins: { legend: { display: false } } }
+            });
+        }
+
+        function exportData() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state.transactions));
+            const dl = document.createElement('a');
+            dl.setAttribute("href", dataStr);
+            dl.setAttribute("download", `mariner_finance_export.json`);
+            dl.click();
+        }
+
+        function resetSystem() {
+            if (confirm("🚨 DANGER: This will delete all your voyage data. Proceed?")) {
+                localStorage.removeItem('mpro_data');
+                state.transactions = [];
+                updateDashboard();
+                showToast("System Wiped");
+            }
+        }
+
+        // --- INIT ---
+        window.onload = () => {
+            document.getElementById('in-date').value = new Date().toISOString().split('T')[0];
+            updateDashboard();
+        };
+    </script>
+</body>
+</html>
 
 ```
+
 
 
 
