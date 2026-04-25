@@ -1,1 +1,263 @@
-index
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Finance Tracker Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0f172a;
+            color: #f8fafc;
+            touch-action: manipulation;
+        }
+
+        .glass-card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .transaction-item {
+            transition: all 0.2s ease;
+        }
+
+        .transaction-item:active {
+            transform: scale(0.98);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        /* Custom scrollbar for transaction list */
+        .custom-scroll::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 10px;
+        }
+
+        .gradient-text {
+            background: linear-gradient(135deg, #60a5fa, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center p-4 pb-10">
+
+    <div class="w-full max-w-md space-y-6">
+        <!-- Header -->
+        <header class="flex justify-between items-center pt-4">
+            <div>
+                <h1 class="text-2xl font-bold gradient-text">FinancePro</h1>
+                <p class="text-xs text-slate-400">Personal Wealth Manager</p>
+            </div>
+            <button onclick="clearAllData()" class="p-2 bg-slate-800/50 rounded-full hover:bg-red-900/30 transition">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+            </button>
+        </header>
+
+        <!-- Balance Section -->
+        <div class="glass-card p-8 rounded-3xl text-center shadow-2xl relative overflow-hidden">
+            <div class="absolute -top-10 -right-10 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl"></div>
+            <p class="text-slate-400 text-sm uppercase tracking-widest font-semibold mb-1">Total Balance</p>
+            <h2 id="total-balance" class="text-5xl font-bold mb-4">$0.00</h2>
+            
+            <div class="grid grid-cols-2 gap-4 mt-6 pt-6 border-t border-slate-700/50">
+                <div>
+                    <p class="text-xs text-slate-400 mb-1">Income</p>
+                    <p id="total-income" class="text-emerald-400 font-bold">+$0.00</p>
+                </div>
+                <div>
+                    <p class="text-xs text-slate-400 mb-1">Expenses</p>
+                    <p id="total-expense" class="text-rose-400 font-bold">-$0.00</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Input Form -->
+        <div class="glass-card p-6 rounded-2xl space-y-4">
+            <div class="space-y-2">
+                <label class="text-xs font-semibold text-slate-400 uppercase">Transaction Details</label>
+                <input id="input-desc" type="text" placeholder="What was it for?" 
+                    class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 outline-none focus:border-blue-500 transition placeholder:text-slate-600">
+            </div>
+            
+            <div class="space-y-2">
+                <label class="text-xs font-semibold text-slate-400 uppercase">Amount ($)</label>
+                <input id="input-amount" type="number" placeholder="0.00" 
+                    class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 outline-none focus:border-blue-500 transition placeholder:text-slate-600">
+            </div>
+
+            <div class="flex gap-3 pt-2">
+                <button onclick="addTransaction('income')" 
+                    class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-emerald-900/20 active:scale-95">
+                    Income
+                </button>
+                <button onclick="addTransaction('expense')" 
+                    class="flex-1 bg-rose-600 hover:bg-rose-500 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-rose-900/20 active:scale-95">
+                    Expense
+                </button>
+            </div>
+        </div>
+
+        <!-- History -->
+        <div class="space-y-4">
+            <div class="flex justify-between items-center px-1">
+                <h3 class="font-bold text-slate-300">Recent Transactions</h3>
+                <span id="tx-count" class="text-xs bg-slate-800 px-2 py-1 rounded text-slate-400">0 Items</span>
+            </div>
+            
+            <div id="history-list" class="space-y-3 max-h-[300px] overflow-y-auto custom-scroll pr-1">
+                <!-- Items injected here -->
+                <div class="text-center py-10 text-slate-500 italic text-sm">
+                    No transactions yet. Start logging!
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- UI Feedback Toast -->
+    <div id="toast" class="fixed bottom-6 bg-slate-800 text-white px-6 py-3 rounded-full text-sm font-medium opacity-0 pointer-events-none transition-all duration-300 shadow-xl border border-slate-700"></div>
+
+    <script>
+        // State Management
+        let state = {
+            transactions: JSON.parse(localStorage.getItem('fpro_data')) || []
+        };
+
+        // DOM Elements
+        const elBalance = document.getElementById('total-balance');
+        const elIncome = document.getElementById('total-income');
+        const elExpense = document.getElementById('total-expense');
+        const elList = document.getElementById('history-list');
+        const elDesc = document.getElementById('input-desc');
+        const elAmount = document.getElementById('input-amount');
+        const elCount = document.getElementById('tx-count');
+        const elToast = document.getElementById('toast');
+
+        function showToast(msg) {
+            elToast.innerText = msg;
+            elToast.classList.add('opacity-100', '-translate-y-2');
+            setTimeout(() => {
+                elToast.classList.remove('opacity-100', '-translate-y-2');
+            }, 2000);
+        }
+
+        function updateUI() {
+            // Sort by newest first
+            const txs = state.transactions;
+            
+            if (txs.length === 0) {
+                elList.innerHTML = `<div class="text-center py-10 text-slate-500 italic text-sm">No transactions yet. Start logging!</div>`;
+                elBalance.innerText = "$0.00";
+                elIncome.innerText = "+$0.00";
+                elExpense.innerText = "-$0.00";
+                elCount.innerText = "0 Items";
+                return;
+            }
+
+            elList.innerHTML = '';
+            let incomeTotal = 0;
+            let expenseTotal = 0;
+
+            txs.forEach((tx, index) => {
+                if (tx.type === 'income') incomeTotal += tx.amount;
+                else expenseTotal += tx.amount;
+
+                const card = document.createElement('div');
+                card.className = "transaction-item glass-card p-4 rounded-xl flex justify-between items-center group";
+                
+                const isIncome = tx.type === 'income';
+                
+                card.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center ${isIncome ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}">
+                            ${isIncome 
+                                ? '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m19 12-7-7-7 7"/><path d="M12 19V5"/></svg>'
+                                : '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>'
+                            }
+                        </div>
+                        <div>
+                            <p class="font-bold text-slate-200">${tx.description}</p>
+                            <p class="text-[10px] text-slate-500 uppercase tracking-tighter">${new Date(tx.date).toLocaleDateString()} • ${new Date(tx.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                        </div>
+                    </div>
+                    <div class="text-right flex flex-col items-end">
+                        <p class="font-bold ${isIncome ? 'text-emerald-400' : 'text-rose-400'}">
+                            ${isIncome ? '+' : '-'}$${tx.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}
+                        </p>
+                        <button onclick="deleteTransaction(${index})" class="text-[10px] text-slate-600 hover:text-rose-400 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">Delete</button>
+                    </div>
+                `;
+                elList.appendChild(card);
+            });
+
+            const netTotal = incomeTotal - expenseTotal;
+            elBalance.innerText = `$${netTotal.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+            elBalance.className = `text-5xl font-bold mb-4 transition-colors ${netTotal >= 0 ? 'text-white' : 'text-rose-400'}`;
+            
+            elIncome.innerText = `+$${incomeTotal.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+            elExpense.innerText = `-$${expenseTotal.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+            elCount.innerText = `${txs.length} Item${txs.length === 1 ? '' : 's'}`;
+            
+            localStorage.setItem('fpro_data', JSON.stringify(state.transactions));
+        }
+
+        function addTransaction(type) {
+            const desc = elDesc.value.trim();
+            const amt = parseFloat(elAmount.value);
+
+            if (!desc) {
+                showToast("Please enter a description");
+                return;
+            }
+            if (isNaN(amt) || amt <= 0) {
+                showToast("Please enter a valid amount");
+                return;
+            }
+
+            const newTx = {
+                description: desc,
+                amount: amt,
+                type: type,
+                date: new Date().getTime()
+            };
+
+            state.transactions.unshift(newTx);
+            elDesc.value = '';
+            elAmount.value = '';
+            
+            updateUI();
+            showToast(`${type.charAt(0).toUpperCase() + type.slice(1)} added!`);
+        }
+
+        function deleteTransaction(index) {
+            state.transactions.splice(index, 1);
+            updateUI();
+            showToast("Item removed");
+        }
+
+        function clearAllData() {
+            if (confirm("Are you sure you want to delete all transactions?")) {
+                state.transactions = [];
+                updateUI();
+                showToast("Data cleared");
+            }
+        }
+
+        // Initialize
+        updateUI();
+    </script>
+</body>
+</html>
+
+```
+
