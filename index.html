@@ -1,260 +1,261 @@
-
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MarinerWealth Pro | Seafarer Command Center</title>
+    <title>MarinerWealth Pro | Portage Bill Command</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
         
         :root {
-            --ocean-dark: #020617;
-            --ocean-blue: #38bdf8;
-            --glass: rgba(15, 23, 42, 0.8);
+            --ocean-bg: #020617;
+            --ocean-card: rgba(15, 23, 42, 0.7);
+            --accent-blue: #38bdf8;
+            --accent-emerald: #10b981;
+            --accent-rose: #f43f5e;
         }
 
         body {
             font-family: 'Plus Jakarta Sans', sans-serif;
-            background-color: var(--ocean-dark);
-            background-image: radial-gradient(circle at 50% -20%, #0c4a6e, #020617);
-            color: #f8fafc;
+            background-color: var(--ocean-bg);
+            background-image: 
+                radial-gradient(circle at 0% 0%, rgba(56, 189, 248, 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 100% 100%, rgba(129, 140, 248, 0.08) 0%, transparent 50%);
+            color: #f1f5f9;
             min-height: 100vh;
-            overflow-x: hidden;
         }
 
-        .glass-card {
-            background: var(--glass);
-            backdrop-filter: blur(12px);
+        .glass {
+            background: var(--ocean-card);
+            backdrop-filter: blur(16px);
             border: 1px solid rgba(255, 255, 255, 0.08);
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
         }
 
-        .btn-primary {
-            background: var(--ocean-blue);
-            color: #020617;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        .neo-input {
+            background: rgba(0, 0, 0, 0.4) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            color: white !important;
         }
-        .btn-primary:active { transform: scale(0.95); }
+        .neo-input:focus {
+            border-color: var(--accent-blue) !important;
+            outline: none;
+            box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.1);
+        }
 
         .custom-scroll::-webkit-scrollbar { height: 4px; width: 4px; }
         .custom-scroll::-webkit-scrollbar-track { background: transparent; }
         .custom-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
 
-        input, select {
-            background: rgba(0, 0, 0, 0.3) !important;
-            border: 1px solid rgba(255, 255, 255, 0.1) !important;
-            color: white !important;
-        }
-        input:focus { border-color: var(--ocean-blue) !important; outline: none; }
-
-        .month-chip.active {
-            background: var(--ocean-blue);
-            color: #020617;
-            border-color: var(--ocean-blue);
+        .active-month {
+            background: var(--accent-blue) !important;
+            color: #020617 !important;
+            font-weight: 800;
         }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(12px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        .animate-fade { animation: fadeIn 0.4s ease-out forwards; }
+        .animate-slide { animation: slideUp 0.4s ease-out forwards; }
     </style>
 </head>
-<body class="p-4 md:p-8">
+<body class="p-4 md:p-8 pb-24">
 
-    <div class="max-w-6xl mx-auto space-y-8">
+    <div class="max-w-7xl mx-auto space-y-8">
         
-        <!-- SECTION 1: TOP CONTROL BAR -->
-        <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <!-- TOP CONTROL BAR -->
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
             <div class="flex items-center gap-4">
-                <div class="p-3 bg-sky-500 rounded-2xl shadow-lg shadow-sky-500/20">
+                <div class="p-4 bg-sky-500 rounded-2xl shadow-2xl shadow-sky-500/20">
                     <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                 </div>
                 <div>
-                    <h1 class="text-2xl font-800 tracking-tighter">MARINER<span class="text-sky-400">WEALTH</span> PRO</h1>
-                    <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Fleet Finance Control Panel</p>
+                    <h1 class="text-3xl font-900 tracking-tighter leading-none">MARINER<span class="text-sky-400">WEALTH</span> PRO</h1>
+                    <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Voyage Portage Bill System</p>
                 </div>
             </div>
 
-            <div class="flex items-center gap-2 w-full md:w-auto">
-                <div class="flex-1 md:flex-none flex items-center bg-white/5 border border-white/10 rounded-xl px-3 py-2">
-                    <span class="text-xs font-bold text-slate-400 mr-2">BASE:</span>
-                    <select id="base-currency" onchange="updateDashboard()" class="bg-transparent text-sm font-bold outline-none cursor-pointer">
-                        <option value="USD">USD ($)</option>
-                        <option value="INR">INR (₹)</option>
-                        <option value="AED">AED (د.إ)</option>
-                    </select>
-                </div>
-                <button onclick="exportData()" class="p-3 glass-card rounded-xl hover:bg-white/10"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
-                <button onclick="resetSystem()" class="p-3 glass-card rounded-xl hover:bg-rose-500/20 text-rose-400"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>
+            <div class="flex items-center gap-3">
+                <select id="base-currency" onchange="refreshUI()" class="bg-slate-900 border border-white/10 rounded-xl px-4 py-2 text-xs font-bold outline-none cursor-pointer">
+                    <option value="USD">USD ($)</option>
+                    <option value="INR">INR (₹)</option>
+                    <option value="AED">AED (د.إ)</option>
+                </select>
+                <button onclick="exportData()" class="p-2.5 glass rounded-xl hover:bg-white/10"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
+                <button onclick="resetData()" class="p-2.5 glass rounded-xl hover:bg-rose-500/20 text-rose-400"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>
             </div>
         </header>
 
-        <!-- SECTION 2: NET WORTH DASHBOARD -->
+        <!-- DASHBOARD -->
         <section class="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            <div class="lg:col-span-2 glass-card p-8 rounded-[2.5rem] relative overflow-hidden group">
-                <div class="absolute top-0 right-0 w-64 h-64 bg-sky-500/10 blur-[100px] rounded-full"></div>
-                <div class="relative z-10">
-                    <p class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Total Combined Net Worth</p>
-                    <h2 id="total-net-worth" class="text-6xl font-900 tracking-tighter mb-8">$0.00</h2>
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div class="bg-white/5 p-4 rounded-2xl border border-white/5">
-                            <p class="text-[9px] font-bold text-slate-500 uppercase mb-1">NRE Account</p>
-                            <p id="stat-nre" class="text-sm font-bold text-sky-400">$0</p>
-                        </div>
-                        <div class="bg-white/5 p-4 rounded-2xl border border-white/5">
-                            <p class="text-[9px] font-bold text-slate-500 uppercase mb-1">Cash Onboard</p>
-                            <p id="stat-cash" class="text-sm font-bold text-emerald-400">$0</p>
-                        </div>
-                        <div class="bg-white/5 p-4 rounded-2xl border border-white/5">
-                            <p class="text-[9px] font-bold text-slate-500 uppercase mb-1">Loan Balance</p>
-                            <p id="stat-loan" class="text-sm font-bold text-rose-400">$0</p>
-                        </div>
-                        <div class="bg-white/5 p-4 rounded-2xl border border-white/5">
-                            <p class="text-[9px] font-bold text-slate-500 uppercase mb-1">Savings Rate</p>
-                            <p id="stat-rate" class="text-sm font-bold text-indigo-400">0%</p>
-                        </div>
+            <!-- Total Net Worth -->
+            <div class="lg:col-span-2 glass p-8 rounded-[2.5rem] relative overflow-hidden">
+                <div class="absolute -right-20 -top-20 w-80 h-80 bg-sky-500/10 blur-[100px] rounded-full"></div>
+                <p class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">Total Combined Net Worth</p>
+                <h2 id="total-nw" class="text-6xl font-900 tracking-tighter mb-8">$0.00</h2>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="bg-white/5 p-4 rounded-2xl border border-white/5">
+                        <p class="text-[9px] font-black text-slate-500 uppercase mb-1">NRE Bank</p>
+                        <p id="stat-nre" class="text-sm font-bold text-sky-400">$0</p>
+                    </div>
+                    <div class="bg-white/5 p-4 rounded-2xl border border-white/5">
+                        <p class="text-[9px] font-black text-slate-500 uppercase mb-1">Cash In Hand</p>
+                        <p id="stat-cash" class="text-sm font-bold text-emerald-400">$0</p>
+                    </div>
+                    <div class="bg-white/5 p-4 rounded-2xl border border-white/5">
+                        <p class="text-[9px] font-black text-slate-500 uppercase mb-1">Loan Due</p>
+                        <p id="stat-loan" class="text-sm font-bold text-rose-400">$0</p>
+                    </div>
+                    <div class="bg-white/5 p-4 rounded-2xl border border-white/5">
+                        <p class="text-[9px] font-black text-slate-500 uppercase mb-1">Portage Balance</p>
+                        <p id="stat-portage" class="text-sm font-bold text-indigo-400">$0</p>
                     </div>
                 </div>
             </div>
 
-            <!-- SECTION 3: QUICK ANALYTICS -->
-            <div class="glass-card p-6 rounded-[2.5rem] flex flex-col items-center justify-center">
-                <h3 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-6">Spend Distribution</h3>
-                <div class="w-full max-w-[150px]">
+            <!-- Analytics -->
+            <div class="glass p-6 rounded-[2.5rem] flex flex-col items-center justify-center min-h-[300px]">
+                <h3 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-6">Spend Breakdown</h3>
+                <div class="w-full max-w-[180px]">
                     <canvas id="expenseChart"></canvas>
                 </div>
             </div>
 
-            <div class="glass-card p-6 rounded-[2.5rem] flex flex-col justify-between">
+            <!-- Quick Insight -->
+            <div class="glass p-6 rounded-[2.5rem] flex flex-col justify-between">
                 <div>
-                    <h3 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Monthly Budget</h3>
+                    <h3 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Salary Efficiency</h3>
                     <div class="flex justify-between items-end mb-2">
-                        <p id="budget-used-text" class="text-2xl font-bold">$0</p>
-                        <p class="text-[10px] text-slate-500 font-bold">Limit: $1,200</p>
+                        <p id="efficiency-rate" class="text-3xl font-black text-sky-400">0%</p>
+                        <p class="text-[10px] text-slate-500 font-bold uppercase">Savings Ratio</p>
                     </div>
-                    <div class="h-2 bg-white/5 rounded-full overflow-hidden">
-                        <div id="budget-progress" class="h-full bg-sky-500 transition-all duration-1000" style="width: 0%"></div>
+                    <div class="h-2 bg-slate-900 rounded-full overflow-hidden border border-white/5">
+                        <div id="efficiency-bar" class="h-full bg-sky-500 transition-all duration-1000" style="width: 0%"></div>
                     </div>
                 </div>
-                <div id="smart-insight" class="mt-4 p-3 bg-white/5 rounded-xl border border-white/5 text-[10px] font-medium leading-relaxed text-slate-400">
-                    Input your first transaction to generate fleet insights.
+                <div id="insight-msg" class="mt-6 p-4 rounded-2xl text-[10px] font-bold uppercase tracking-wider leading-relaxed bg-white/5 text-slate-500 border border-white/5">
+                    Start by entering your Gross Salary for this month.
                 </div>
             </div>
         </section>
 
-        <!-- SECTION 4: ADD ENTRY PANEL (ALWAYS VISIBLE) -->
-        <section class="glass-card p-8 rounded-[2.5rem] border-sky-500/20 shadow-2xl shadow-sky-500/5">
-            <h3 class="text-sm font-900 uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                New Transaction Log
-            </h3>
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div class="space-y-4">
-                    <div>
-                        <label class="text-[10px] font-bold text-slate-500 uppercase ml-2 mb-1 block">Category</label>
-                        <select id="in-category" class="w-full p-3 rounded-xl text-sm outline-none">
-                            <optgroup label="Inflow">
-                                <option value="Allotment">Monthly Allotment</option>
-                                <option value="Cash Advance">Cash Advance (Onboard)</option>
-                                <option value="Interest">NRE Interest / Misc</option>
-                            </optgroup>
-                            <optgroup label="Outflow">
-                                <option value="Shore Leave">Shore Leave Expense</option>
-                                <option value="Bond Store">Bond Store Expense</option>
-                                <option value="Loan EMI">Loan Installment</option>
-                                <option value="Family">Family Remittance</option>
-                                <option value="Other">Miscellaneous</option>
-                            </optgroup>
-                        </select>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- PORTAGE BILL CALCULATOR (NEW) -->
+            <div class="lg:col-span-1 glass p-8 rounded-[3rem] border-sky-500/20 shadow-2xl">
+                <h3 class="text-sm font-900 uppercase tracking-widest text-sky-400 mb-6 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                    Monthly Portage Bill
+                </h3>
+                <div class="space-y-6">
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-500 uppercase ml-2 block">Gross Monthly Salary ($)</label>
+                        <input id="set-gross" type="number" oninput="calculatePortage()" placeholder="0.00" class="w-full p-4 rounded-2xl text-xl font-black neo-input">
                     </div>
+                    <div class="bg-black/20 p-6 rounded-3xl space-y-4 border border-white/5">
+                        <div class="flex justify-between text-xs font-bold">
+                            <span class="text-slate-400">Total Cash Advances</span>
+                            <span id="p-advances" class="text-rose-400">-$0.00</span>
+                        </div>
+                        <div class="flex justify-between text-xs font-bold">
+                            <span class="text-slate-400">Total Bond Store</span>
+                            <span id="p-bond" class="text-rose-400">-$0.00</span>
+                        </div>
+                        <div class="pt-4 border-t border-white/10 flex justify-between text-sm font-black">
+                            <span class="text-white">Net Allotment</span>
+                            <span id="p-net" class="text-emerald-400">$0.00</span>
+                        </div>
+                    </div>
+                    <button onclick="finalizeAllotment()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black py-4 rounded-2xl shadow-xl transition-all uppercase tracking-widest text-xs">
+                        Confirm & Send Allotment
+                    </button>
+                    <p class="text-[9px] text-center text-slate-500 font-bold uppercase italic">Allotment will be credited to NRE Account</p>
                 </div>
-                <div class="space-y-4">
-                    <div>
-                        <label class="text-[10px] font-bold text-slate-500 uppercase ml-2 mb-1 block">Amount & Currency</label>
-                        <div class="flex gap-2">
-                            <input id="in-amount" type="number" placeholder="0.00" class="flex-1 p-3 rounded-xl text-lg font-bold">
-                            <select id="in-currency" class="w-20 p-3 rounded-xl text-xs font-bold">
-                                <option value="USD">USD</option>
-                                <option value="INR">INR</option>
-                                <option value="AED">AED</option>
+            </div>
+
+            <!-- ENTRY PANEL -->
+            <div class="lg:col-span-2 glass p-8 rounded-[3rem] border-white/5 shadow-2xl">
+                <h3 class="text-sm font-900 uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    New Onboard Transaction
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="text-[10px] font-black text-slate-500 uppercase ml-2 mb-1.5 block">Category</label>
+                            <select id="in-category" class="w-full p-4 rounded-2xl text-sm font-bold neo-input appearance-none">
+                                <option value="Cash Advance">Cash Advance (Deducted from Salary)</option>
+                                <option value="Bond Store">Bond Store (Deducted from Salary)</option>
+                                <option value="Shore Leave">Shore Leave (From Physical Cash)</option>
+                                <option value="Family">Family Remittance (From NRE)</option>
+                                <option value="Loan EMI">Loan Installment (From NRE)</option>
+                                <option value="Misc">Miscellaneous (Onboard Cash)</option>
                             </select>
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-black text-slate-500 uppercase ml-2 mb-1.5 block">Description</label>
+                            <input id="in-desc" type="text" placeholder="e.g. Port Singapore / Slop Chest" class="w-full p-4 rounded-2xl text-sm font-bold neo-input">
+                        </div>
+                    </div>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="text-[10px] font-black text-slate-500 uppercase ml-2 mb-1.5 block">Amount ($)</label>
+                            <input id="in-amount" type="number" placeholder="0.00" class="w-full p-4 rounded-2xl text-xl font-black neo-input">
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-black text-slate-500 uppercase ml-2 mb-1.5 block">Date</label>
+                            <input id="in-date" type="date" class="w-full p-4 rounded-2xl text-sm font-bold neo-input">
                         </div>
                     </div>
                 </div>
-                <div class="space-y-4">
-                    <div>
-                        <label class="text-[10px] font-bold text-slate-500 uppercase ml-2 mb-1 block">Date & Month</label>
-                        <input id="in-date" type="date" class="w-full p-3 rounded-xl text-sm">
-                    </div>
-                </div>
-                <div class="flex items-end">
-                    <button onclick="handleAdd()" class="w-full btn-primary font-900 py-4 rounded-xl shadow-lg shadow-sky-500/20 uppercase tracking-widest text-xs">
-                        Sync Entry
-                    </button>
-                </div>
-            </div>
-            <div class="mt-4">
-                <input id="in-desc" type="text" placeholder="Description (e.g. Port Singapore Dinner / Cabin Bond)" class="w-full p-3 rounded-xl text-sm italic">
-            </div>
-        </section>
-
-        <!-- SECTION 5: MONTH SELECTOR & HISTORY -->
-        <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
-            <div class="lg:col-span-1 space-y-4">
-                <h3 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-2">Voyage Months</h3>
-                <div id="month-chips" class="flex flex-row lg:flex-col gap-2 overflow-x-auto lg:overflow-visible custom-scroll pb-2 lg:pb-0">
-                    <!-- Months injected here -->
-                </div>
-            </div>
-
-            <div class="lg:col-span-3 space-y-4">
-                <div class="flex justify-between items-center px-2">
-                    <h3 id="history-title" class="text-sm font-bold text-slate-300">Recent Transactions</h3>
-                    <div id="month-summary" class="flex gap-4 text-[10px] font-bold uppercase">
-                        <span class="text-emerald-400">In: <span id="m-inc">$0</span></span>
-                        <span class="text-rose-400">Out: <span id="m-exp">$0</span></span>
-                    </div>
-                </div>
-                <div id="tx-history" class="space-y-3 max-h-[500px] overflow-y-auto custom-scroll pr-2">
-                    <!-- Logs injected here -->
-                </div>
+                <button onclick="handleEntry()" class="w-full mt-6 bg-sky-500 hover:bg-sky-400 text-slate-950 font-black py-4 rounded-2xl shadow-xl uppercase tracking-widest text-xs transition-all">
+                    Sync to Voyage Log
+                </button>
             </div>
         </div>
 
+        <!-- TIMELINE & LOGS -->
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+            <div class="lg:col-span-1 space-y-4">
+                <h3 class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-3">Voyage Timeline</h3>
+                <div id="month-chips" class="flex flex-row lg:flex-col gap-2 overflow-x-auto lg:overflow-visible custom-scroll pb-3 lg:pb-0">
+                    <!-- Months -->
+                </div>
+            </div>
+
+            <div class="lg:col-span-3 space-y-6">
+                <div class="flex justify-between items-center px-3">
+                    <h3 id="history-title" class="text-sm font-black text-slate-400 uppercase tracking-widest">Transaction Log</h3>
+                    <div class="flex gap-6 text-[10px] font-black uppercase">
+                        <span class="text-emerald-400">Saved this month: <span id="m-save">$0</span></span>
+                    </div>
+                </div>
+                <div id="log-container" class="space-y-4 max-h-[500px] overflow-y-auto custom-scroll pr-3">
+                    <!-- Logs -->
+                </div>
+            </div>
+        </div>
     </div>
 
-    <!-- UI TOAST -->
-    <div id="toast" class="fixed bottom-10 left-1/2 -translate-x-1/2 glass-card border-sky-500 px-8 py-4 rounded-2xl font-bold text-sm opacity-0 pointer-events-none transition-all duration-300 z-50"></div>
+    <!-- TOAST -->
+    <div id="toast" class="fixed bottom-8 left-1/2 -translate-x-1/2 glass border-sky-500 px-10 py-4 rounded-3xl font-black text-xs uppercase tracking-[0.2em] opacity-0 pointer-events-none transition-all duration-300 z-[200]"></div>
 
     <script>
-        // --- DATA & CONFIG ---
-        const RATES = { USD: 1, INR: 83.5, AED: 3.67 };
-        const BUDGET_LIMIT = 1200;
+        // --- CONFIG & STATE ---
+        const CONVERSION = { USD: 1, INR: 83.45, AED: 3.67 };
         
         let state = {
-            transactions: JSON.parse(localStorage.getItem('mpro_data')) || [],
+            transactions: JSON.parse(localStorage.getItem('mariner_wealth_v2')) || [],
+            salaries: JSON.parse(localStorage.getItem('mariner_salaries')) || {}, // { "2024-05": 5000 }
             selectedMonth: new Date().toISOString().slice(0, 7),
             baseCurrency: 'USD'
         };
 
-        const CAT_MAP = {
-            'Allotment': { type: 'income', account: 'nre' },
-            'Cash Advance': { type: 'income', account: 'cash' },
-            'Interest': { type: 'income', account: 'nre' },
-            'Shore Leave': { type: 'expense', account: 'cash' },
-            'Bond Store': { type: 'expense', account: 'cash' },
-            'Loan EMI': { type: 'expense', account: 'nre' },
-            'Family': { type: 'expense', account: 'nre' },
-            'Other': { type: 'expense', account: 'cash' }
-        };
+        let activeChart = null;
 
-        let myChart = null;
-
-        // --- CORE FUNCTIONS ---
+        // --- ENGINE ---
         function showToast(msg) {
             const t = document.getElementById('toast');
             t.innerText = msg;
@@ -262,202 +263,244 @@
             setTimeout(() => t.classList.remove('opacity-100', '-translate-y-4'), 3000);
         }
 
-        function handleAdd() {
-            const amt = parseFloat(document.getElementById('in-amount').value);
-            const curr = document.getElementById('in-currency').value;
+        function saveData() {
+            localStorage.setItem('mariner_wealth_v2', JSON.stringify(state.transactions));
+            localStorage.setItem('mariner_salaries', JSON.stringify(state.salaries));
+        }
+
+        function handleEntry() {
+            const amount = parseFloat(document.getElementById('in-amount').value);
             const date = document.getElementById('in-date').value;
-            const cat = document.getElementById('in-category').value;
+            const category = document.getElementById('in-category').value;
             const desc = document.getElementById('in-desc').value.trim();
 
-            if (!amt || !date) return showToast("⚠️ Enter valid amount and date");
+            if (!amount || !date) return showToast("⚠️ Missing details");
 
             const tx = {
                 id: Date.now(),
-                amount: amt,
-                currency: curr,
-                date: date,
+                amount,
+                date,
                 month: date.slice(0, 7),
-                category: cat,
-                description: desc || cat,
-                type: CAT_MAP[cat].type,
-                account: CAT_MAP[cat].account
+                category,
+                description: desc || category,
+                currency: 'USD'
             };
 
             state.transactions.unshift(tx);
-            save();
+            saveData();
+            refreshUI();
+            
             document.getElementById('in-amount').value = '';
             document.getElementById('in-desc').value = '';
-            showToast("⚓ Sync Successful");
-            updateDashboard();
+            showToast("⚓ Transaction Logged");
         }
 
-        function save() {
-            localStorage.setItem('mpro_data', JSON.stringify(state.transactions));
-        }
+        function calculatePortage() {
+            const gross = parseFloat(document.getElementById('set-gross').value) || 0;
+            state.salaries[state.selectedMonth] = gross;
+            saveData();
 
-        function deleteTx(id) {
-            state.transactions = state.transactions.filter(t => t.id !== id);
-            save();
-            updateDashboard();
-        }
+            let cashAdv = 0;
+            let bondStr = 0;
 
-        function updateDashboard() {
-            state.baseCurrency = document.getElementById('base-currency').value;
-            const txs = state.transactions;
-            const month = state.selectedMonth;
-            
-            let totalUSD = 0, nreUSD = 0, cashUSD = 0, loanUSD = 0, incUSD = 0, expUSD = 0;
-            let mIncUSD = 0, mExpUSD = 0;
-            let catStats = {};
-
-            txs.forEach(t => {
-                const valUSD = t.amount / RATES[t.currency];
-                const isSelected = t.month === month;
-
-                if (t.type === 'income') {
-                    incUSD += valUSD;
-                    if (isSelected) mIncUSD += valUSD;
-                    if (t.account === 'nre') nreUSD += valUSD; else cashUSD += valUSD;
-                } else {
-                    expUSD += valUSD;
-                    if (isSelected) {
-                        mExpUSD += valUSD;
-                        catStats[t.category] = (catStats[t.category] || 0) + valUSD;
-                    }
-                    if (t.category === 'Loan EMI') loanUSD += valUSD;
-                    if (t.account === 'nre') nreUSD -= valUSD; else cashUSD -= valUSD;
+            state.transactions.forEach(t => {
+                if (t.month === state.selectedMonth) {
+                    if (t.category === 'Cash Advance') cashAdv += t.amount;
+                    if (t.category === 'Bond Store') bondStr += t.amount;
                 }
             });
 
-            // UI UPDATES
-            const format = (v) => (state.baseCurrency === 'USD' ? '$' : (state.baseCurrency === 'INR' ? '₹' : 'د.إ')) + (v * RATES[state.baseCurrency]).toLocaleString(undefined, { maximumFractionDigits: 0 });
-
-            document.getElementById('total-net-worth').innerText = format(nreUSD + cashUSD);
-            document.getElementById('stat-nre').innerText = format(nreUSD);
-            document.getElementById('stat-cash').innerText = format(cashUSD);
-            document.getElementById('stat-loan').innerText = format(loanUSD);
-            document.getElementById('stat-rate').innerText = incUSD > 0 ? ((incUSD - expUSD) / incUSD * 100).toFixed(0) + '%' : '0%';
-
-            document.getElementById('budget-used-text').innerText = format(mExpUSD);
-            const prog = Math.min(100, (mExpUSD / BUDGET_LIMIT) * 100);
-            document.getElementById('budget-progress').style.width = prog + '%';
-            document.getElementById('budget-progress').className = `h-full transition-all duration-1000 ${prog > 90 ? 'bg-rose-500' : 'bg-sky-500'}`;
-
-            document.getElementById('m-inc').innerText = format(mIncUSD);
-            document.getElementById('m-exp').innerText = format(mExpUSD);
-
-            renderHistory(month);
-            renderMonthChips();
-            updateChart(catStats);
-            updateInsights(mExpUSD, mIncUSD);
+            document.getElementById('p-advances').innerText = `-$${cashAdv.toLocaleString()}`;
+            document.getElementById('p-bond').innerText = `-$${bondStr.toLocaleString()}`;
+            document.getElementById('p-net').innerText = `$${(gross - cashAdv - bondStr).toLocaleString()}`;
         }
 
-        function updateInsights(exp, inc) {
-            const el = document.getElementById('smart-insight');
-            if (exp > BUDGET_LIMIT) {
-                el.innerText = "🚨 High spending detected. Bond Store and Shore Leave costs are exceeding your safe limits.";
-                el.className = "mt-4 p-3 bg-rose-500/10 rounded-xl border border-rose-500/30 text-[10px] font-bold text-rose-400";
-            } else if (inc > 0 && (exp / inc) < 0.2) {
-                el.innerText = "💎 Excellent voyage efficiency! You are saving over 80% of your income this month.";
-                el.className = "mt-4 p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/30 text-[10px] font-bold text-emerald-400";
-            } else {
-                el.innerText = "⚓ Steady sailing. Keep tracking your port expenses to maintain your savings goal.";
-                el.className = "mt-4 p-3 bg-white/5 rounded-xl border border-white/5 text-[10px] font-medium text-slate-400";
-            }
+        function finalizeAllotment() {
+            const gross = state.salaries[state.selectedMonth] || 0;
+            if (gross <= 0) return showToast("⚠️ Enter Gross Salary first");
+
+            let cashAdv = 0;
+            let bondStr = 0;
+            state.transactions.forEach(t => {
+                if (t.month === state.selectedMonth) {
+                    if (t.category === 'Cash Advance') cashAdv += t.amount;
+                    if (t.category === 'Bond Store') bondStr += t.amount;
+                }
+            });
+
+            const netAllotment = gross - cashAdv - bondStr;
+            if (netAllotment <= 0) return showToast("⚠️ Nothing to allot");
+
+            // Create Allotment Transaction
+            const tx = {
+                id: Date.now(),
+                amount: netAllotment,
+                date: state.selectedMonth + "-28",
+                month: state.selectedMonth,
+                category: "Final Allotment",
+                description: "Monthly Net Allotment",
+                type: "income",
+                account: "nre"
+            };
+
+            // Remove existing Final Allotment for this month to prevent duplicates
+            state.transactions = state.transactions.filter(t => !(t.month === state.selectedMonth && t.category === "Final Allotment"));
+            state.transactions.unshift(tx);
+            saveData();
+            refreshUI();
+            showToast("🏦 Allotment Sent to NRE");
         }
 
-        function renderMonthChips() {
-            const container = document.getElementById('month-chips');
-            const months = ['all', ...new Set(state.transactions.map(t => t.month))].sort().reverse();
-            if (!months.includes(new Date().toISOString().slice(0, 7))) months.push(new Date().toISOString().slice(0, 7));
+        function refreshUI() {
+            state.baseCurrency = document.getElementById('base-currency').value;
+            const month = state.selectedMonth;
             
-            container.innerHTML = [...new Set(months)].map(m => `
-                <button onclick="state.selectedMonth='${m}'; updateDashboard()" class="month-chip flex-shrink-0 px-4 py-2 rounded-xl text-xs font-bold border border-white/10 transition-all ${state.selectedMonth === m ? 'active' : 'bg-white/5 text-slate-500 hover:text-white'}">
-                    ${m === 'all' ? 'FULL LOG' : new Date(m + '-02').toLocaleString('default', { month: 'short', year: '2-digit' })}
+            // Stats Calculation
+            let calc = { nre: 0, cash: 0, loan: 0, inc: 0, exp: 0, cats: {}, mSave: 0 };
+
+            state.transactions.forEach(t => {
+                const usd = t.amount; // All internally in USD for simplicity
+                const isSelected = t.month === month;
+
+                // Handle Logic based on categories
+                if (t.category === 'Final Allotment' || t.category === 'Bonus') {
+                    calc.nre += usd;
+                    calc.inc += usd;
+                    if (isSelected) calc.mSave += usd;
+                } else if (t.category === 'Cash Advance') {
+                    calc.cash += usd;
+                    // Cash advance is not income yet, it's just pocket movement from salary to hand
+                } else if (t.category === 'Shore Leave' || t.category === 'Bond Store' || t.category === 'Misc') {
+                    calc.cash -= usd;
+                    calc.exp += usd;
+                    if (isSelected) calc.cats[t.category] = (calc.cats[t.category] || 0) + usd;
+                } else if (t.category === 'Family' || t.category === 'Loan EMI') {
+                    calc.nre -= usd;
+                    calc.exp += usd;
+                    if (t.category === 'Loan EMI') calc.loan += usd;
+                    if (isSelected) calc.cats[t.category] = (calc.cats[t.category] || 0) + usd;
+                }
+            });
+
+            // UI Refresh
+            const conv = CONVERSION[state.baseCurrency];
+            const sym = { USD: '$', INR: '₹', AED: 'د.إ' }[state.baseCurrency];
+            const fmt = (v) => sym + (v * conv).toLocaleString(undefined, { maximumFractionDigits: 0 });
+
+            document.getElementById('total-nw').innerText = fmt(calc.nre + calc.cash);
+            document.getElementById('stat-nre').innerText = fmt(calc.nre);
+            document.getElementById('stat-cash').innerText = fmt(calc.cash);
+            document.getElementById('stat-loan').innerText = fmt(calc.loan);
+            
+            const portageBal = (state.salaries[month] || 0);
+            document.getElementById('stat-portage').innerText = fmt(portageBal);
+            document.getElementById('set-gross').value = state.salaries[month] || '';
+
+            // Efficiency
+            const eff = calc.inc > 0 ? Math.round(((calc.inc - calc.exp) / calc.inc) * 100) : 0;
+            document.getElementById('efficiency-rate').innerText = eff + "%";
+            document.getElementById('efficiency-bar').style.width = eff + "%";
+            document.getElementById('m-save').innerText = fmt(calc.inc - calc.exp);
+
+            calculatePortage();
+            renderTimeline();
+            renderLogs();
+            updateChart(calc.cats);
+        }
+
+        function renderTimeline() {
+            const container = document.getElementById('month-chips');
+            const months = [...new Set(state.transactions.map(t => t.month))];
+            if (!months.includes(new Date().toISOString().slice(0, 7))) months.push(new Date().toISOString().slice(0, 7));
+            months.sort().reverse();
+
+            container.innerHTML = months.map(m => `
+                <button onclick="state.selectedMonth='${m}'; refreshUI()" class="flex-shrink-0 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-white/5 transition-all ${state.selectedMonth === m ? 'active-month' : 'bg-white/5 text-slate-500'}">
+                    ${new Date(m + '-02').toLocaleString('default', { month: 'short', year: '2-digit' })}
                 </button>
             `).join('');
         }
 
-        function renderHistory(month) {
-            const container = document.getElementById('tx-history');
-            const filtered = state.transactions.filter(t => month === 'all' || t.month === month);
+        function renderLogs() {
+            const container = document.getElementById('log-container');
+            const filtered = state.transactions.filter(t => t.month === state.selectedMonth);
             
             if (filtered.length === 0) {
-                container.innerHTML = `<div class="py-12 text-center opacity-30 text-xs italic">No activity recorded for this period.</div>`;
+                container.innerHTML = `<div class="py-20 text-center opacity-30 text-xs italic font-bold uppercase tracking-widest">No voyage activity for this month.</div>`;
                 return;
             }
 
-            container.innerHTML = filtered.map(t => `
-                <div class="animate-fade glass-card p-4 rounded-2xl flex items-center justify-between group hover:border-sky-500/30 transition-all">
-                    <div class="flex items-center gap-4">
-                        <div class="w-10 h-10 rounded-xl flex items-center justify-center ${t.type === 'income' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-400'}">
-                            ${t.type === 'income' ? '↑' : '↓'}
+            container.innerHTML = filtered.map(t => {
+                const isInc = t.category === 'Final Allotment' || t.category === 'Cash Advance' || t.category === 'Bonus';
+                return `
+                <div class="glass p-5 rounded-[2rem] flex items-center justify-between animate-slide border border-white/5 hover:border-sky-500/30 transition-all">
+                    <div class="flex items-center gap-5">
+                        <div class="w-12 h-12 rounded-[1.2rem] flex items-center justify-center ${isInc ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-400'}">
+                            ${isInc ? '↑' : '↓'}
                         </div>
                         <div>
-                            <p class="text-sm font-bold">${t.description}</p>
-                            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">${t.category} • ${t.date}</p>
+                            <p class="text-sm font-black text-slate-200">${t.description}</p>
+                            <p class="text-[9px] text-slate-500 font-black uppercase tracking-widest">${t.category} • ${t.date}</p>
                         </div>
                     </div>
-                    <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-6">
                         <div class="text-right">
-                            <p class="font-black ${t.type === 'income' ? 'text-emerald-400' : 'text-rose-400'}">${t.currency} ${t.amount.toLocaleString()}</p>
-                            <p class="text-[9px] text-slate-600 font-bold uppercase">Via ${t.account.toUpperCase()}</p>
+                            <p class="text-base font-black ${isInc ? 'text-emerald-400' : 'text-rose-400'}">$${t.amount.toLocaleString()}</p>
                         </div>
-                        <button onclick="deleteTx(${t.id})" class="text-slate-700 hover:text-rose-500 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>
+                        <button onclick="deleteTx(${t.id})" class="p-2 text-slate-700 hover:text-rose-500 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>
                     </div>
                 </div>
-            `).join('');
+            `}).join('');
         }
 
         function updateChart(data) {
             const ctx = document.getElementById('expenseChart').getContext('2d');
-            const labels = Object.keys(data);
-            const values = Object.values(data);
-
-            if (myChart) myChart.destroy();
-            if (labels.length === 0) return;
-
-            myChart = new Chart(ctx, {
+            if (activeChart) activeChart.destroy();
+            if (Object.keys(data).length === 0) return;
+            activeChart = new Chart(ctx, {
                 type: 'doughnut',
                 data: {
-                    labels: labels,
-                    datasets: [{
-                        data: values,
-                        backgroundColor: ['#38bdf8', '#fbbf24', '#f43f5e', '#a78bfa', '#10b981'],
-                        borderWidth: 0
-                    }]
+                    labels: Object.keys(data),
+                    datasets: [{ data: Object.values(data), backgroundColor: ['#38bdf8', '#fbbf24', '#f43f5e', '#a78bfa', '#10b981'], borderWidth: 0 }]
                 },
-                options: { cutout: '80%', plugins: { legend: { display: false } } }
+                options: { cutout: '85%', plugins: { legend: { display: false } } }
             });
         }
 
-        function exportData() {
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state.transactions));
-            const dl = document.createElement('a');
-            dl.setAttribute("href", dataStr);
-            dl.setAttribute("download", `mariner_finance_export.json`);
-            dl.click();
+        function deleteTx(id) {
+            state.transactions = state.transactions.filter(t => t.id !== id);
+            saveData();
+            refreshUI();
+            showToast("Log Removed");
         }
 
-        function resetSystem() {
-            if (confirm("🚨 DANGER: This will delete all your voyage data. Proceed?")) {
-                localStorage.removeItem('mpro_data');
-                state.transactions = [];
-                updateDashboard();
-                showToast("System Wiped");
+        function resetData() {
+            if (confirm("Reset everything?")) {
+                localStorage.clear();
+                location.reload();
             }
+        }
+
+        function exportData() {
+            const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `mariner_v2_export.json`;
+            a.click();
         }
 
         // --- INIT ---
         window.onload = () => {
             document.getElementById('in-date').value = new Date().toISOString().split('T')[0];
-            updateDashboard();
+            refreshUI();
         };
     </script>
 </body>
 </html>
 
 ```
+
 
 
 
